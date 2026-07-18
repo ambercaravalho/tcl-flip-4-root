@@ -1,12 +1,17 @@
 # Rooting the TCL Flip 4 (KaiOS 4) over EDL
 
-An **EDL-only, no-wipe** path to a **fully SELinux-permissive** TCL Flip 4,
-adapting the old KaiOS 2.5 boot-patch idea to the phone's real KaiOS 4
-(Android 14) internals.
+An **EDL-only, no-wipe** path to a **fully SELinux-permissive** TCL Flip 4 with a
+**root shell over ADB** (`adb root`), adapting the old KaiOS 2.5 boot-patch idea
+to the phone's real KaiOS 4 (Android 14) internals.
 
 > Status: **DONE and verified on hardware.** The device boots `green` on its
-> normal (active) slot with every SELinux type permissive (`2991/2991`), no
-> bootloader unlock, no userdata wipe, AVB still on.
+> normal (active) slot with every SELinux type permissive (`2991/2991`) **and
+> `adb root` returning `uid=0(root)`**, no bootloader unlock, no userdata wipe,
+> AVB still on.
+
+Both changes ride the **same single `odm` rebuild + one flash**: we edit two
+files inside `odm` (the SELinux policy and `odm`'s `build.prop`), regenerate
+verity once, re-sign `vbmeta_b` once, and flash `odm_b` + `vbmeta_b` once.
 
 > WRITE operations can brick the phone. A full verified backup
 > (`scripts/backup.sh` -> `backups/flip4-full-emmc.img`) is a prerequisite; we
@@ -137,16 +142,48 @@ tools/avb/avbtool.py extract_public_key --key tools/avb/testkeys/testkey_rsa4096
 # sha256(/tmp/tk) must equal the device vbmeta key blob -> MATCH
 ```
 
-## Phase 2 - Build the permissive `odm` + re-signed `vbmeta_b`
+## Why `odm` gets us both permissive *and* `adb root`
 
-All offline; nothing touches the phone.
+Two independent gates, both defeated by editing files that live in `odm`:
+
+1. **Permissive SELinux** - the policy actually loaded at boot is
+   `/odm/etc/selinux/precompiled_sepolicy`. Mark every type permissive and no
+   domain enforces.
+
+2. **`adb root`** - `adbd`'s root service hard-refuses unless the build is
+   *debuggable*:
+
+   ```c
+   if (!__android_log_is_debuggable())   // reads ro.debuggable
+       "adbd cannot run as root in production builds";
+   ```
+
+   Permissive SELinux does **not** change this; it is a separate runtime check.
+   On this unit `ro.debuggable=0`, set in **`/system/build.prop`** - which is on
+   `system`, chained to `vbmeta_system` (a key we do **not** hold). We never
+   touch it. Instead we exploit init's property load order (AOSP
+   `init/property_service.cpp`, `PropertyLoadBootDefaults`):
+
+   > "The more the file is specific to a partition, the later it is loaded so
+   > that its values override the previous ones."
+
+   Files are merged into one map (last writer wins) in this order:
+   `system` -> `system_ext` -> `vendor` -> `vendor_dlkm` -> `odm_dlkm` ->
+   **`odm`** -> `product`. So `ro.debuggable=1` placed in
+   **`/odm/etc/build.prop`** overrides `system`'s `0` - using only the `odm`
+   partition we already re-sign. (`product` loads later still, but doesn't set
+   `ro.debuggable`, so `odm` wins in practice.)
+
+## Phase 2 - Build the permissive + debuggable `odm` + re-signed `vbmeta_b`
+
+All offline; nothing touches the phone. One `odm` image carries **both** edits.
 
 ```bash
 # 1. Pull the precompiled policy out of the odm_b base and make ALL types permissive
 debugfs -R "dump /etc/selinux/precompiled_sepolicy /work/pp" build/odm_b.img
 ./setpermissive /work/pp /work/pp.permissive          # -> "made 2991 types permissive"
 
-# 2. Write it back into a copy of the odm ext4, fix owner/mode/selinux xattr, fsck
+# 2. Write the permissive policy back into a copy of the odm ext4 (fix owner/mode/xattr)
 cp build/odm_b.img build/odm_b-ext4.img
 debugfs -w -R "rm /etc/selinux/precompiled_sepolicy" build/odm_b-ext4.img
 debugfs -w -R "write /work/pp.permissive /etc/selinux/precompiled_sepolicy" build/odm_b-ext4.img
@@ -154,7 +191,22 @@ debugfs -w -R "sif /etc/selinux/precompiled_sepolicy mode 0100644" build/odm_b-e
 debugfs -w -R "sif /etc/selinux/precompiled_sepolicy uid 0" build/odm_b-ext4.img
 debugfs -w -R "sif /etc/selinux/precompiled_sepolicy gid 0" build/odm_b-ext4.img
 debugfs -w -R "ea_set -f ctx.bin /etc/selinux/precompiled_sepolicy security.selinux" build/odm_b-ext4.img
-e2fsck -fy build/odm_b-ext4.img
+
+# 2b. Enable adb root: append ro.debuggable=1 to odm's build.prop.
+#     Preserve its mode (0600), owner (0:0), and SELinux label
+#     (u:object_r:vendor_configs_file:s0) - under permissive the label is not
+#     enforced, but keep it clean. A one-line add stays within the same block,
+#     so the fs stays 333 blocks (no geometry change).
+printf 'u:object_r:vendor_configs_file:s0\000' > /work/ctx.bp.bin
+debugfs -R "dump /etc/build.prop /work/bp" build/odm_b-ext4.img
+printf 'ro.debuggable=1\n' >> /work/bp
+debugfs -w -R "rm /etc/build.prop" build/odm_b-ext4.img
+debugfs -w -R "write /work/bp /etc/build.prop" build/odm_b-ext4.img
+debugfs -w -R "sif /etc/build.prop mode 0100600" build/odm_b-ext4.img
+debugfs -w -R "sif /etc/build.prop uid 0" build/odm_b-ext4.img
+debugfs -w -R "sif /etc/build.prop gid 0" build/odm_b-ext4.img
+debugfs -w -R "ea_set -f /work/ctx.bp.bin /etc/build.prop security.selinux" build/odm_b-ext4.img
+e2fsck -fy build/odm_b-ext4.img          # clean; "332/333 blocks" (unchanged)
 
 # 3. Truncate to the raw fs size and regenerate the verity footer to the EXACT
 #    stock geometry (salt/block/partition_size from `info_image build/odm_b.img`).
@@ -180,6 +232,13 @@ tools/avb/avbtool.py verify_image --image build/vbmeta_b-patched.img \
 diff <(tools/avb/avbtool.py info_image --image build/vbmeta_b.img) \
      <(tools/avb/avbtool.py info_image --image build/vbmeta_b-patched.img)
 ```
+
+> `verify_image` may print `Error verifying descriptor` while still saying
+> `Successfully verified ... vbmeta struct`. That is expected: with FEC zeroed
+> and the `odm` image not present at the path avbtool expects, it can't re-hash
+> the partition - but the **struct signature is valid** and the device verifies
+> against the real `odm` at boot. The `diff` should show *only* the `odm` Root
+> Digest and FEC fields changing.
 
 ## Phase 3 - Flash the ACTIVE slot over EDL
 
@@ -219,11 +278,17 @@ Then battery-pull and boot **normally** (no key-combo).
 ## Phase 4 - Verify on device
 
 ```bash
+# --- permissive SELinux ---
 adb shell getenforce                               # prints "Enforcing" (global mode)...
 adb pull /sys/fs/selinux/policy build/live_policy   # ...but the loaded policy is permissive:
 # count permissive types (libsepol) -> total_types=2991 permissive_types=2991
 adb shell 'dmesg | head'                            # WORKS = shell domain is permissive
 adb shell 'sha256sum /odm/etc/selinux/precompiled_sepolicy'   # == permissive build, not stock
+
+# --- adb root ---
+adb shell getprop ro.debuggable                    # -> 1  (odm build.prop won the merge)
+adb root                                            # -> "restarting adbd as root"
+adb shell id                                        # -> uid=0(root) ... context=u:r:su:s0
 ```
 
 `getenforce` still says `Enforcing` because that is the *global* mode flag; with
@@ -231,6 +296,10 @@ every **type** permissive, no domain enforces (denials are logged only). The
 practical proof is that a normally SELinux-denied shell action (`dmesg`) now
 succeeds. This is what the KaiOS Firefox remote debugger / privileged app-dev
 work needs.
+
+`adb root` works because `ro.debuggable` is now `1`; combined with permissive
+SELinux you get a full `uid=0` shell over ADB. `getprop ro.debuggable` returning
+`1` confirms the `odm`/`build.prop` override beat `system`'s `0`.
 
 ## Rollback
 

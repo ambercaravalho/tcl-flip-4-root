@@ -1,13 +1,13 @@
 # tcl-flip-4-root
 
-**EDL-only root (SELinux-permissive) for the TCL Flip 4** - plus the firehose
-reference and backup toolkit it is built on.
+**EDL-only root (SELinux-permissive + `adb root`) for the TCL Flip 4** - plus the
+firehose reference and backup toolkit it is built on.
 
 This repo documents and tools a **no-wipe, no-unlock** way to make the TCL Flip 4
-fully SELinux-permissive over Qualcomm **EDL firehose**, with Android Verified
-Boot left **on**. It works because the device's AVB root of trust is the public
-AOSP test key, so modified images can be re-signed and the locked bootloader
-still accepts them.
+fully SELinux-permissive **and give `adb root` a `uid=0` shell**, over Qualcomm
+**EDL firehose**, with Android Verified Boot left **on**. It works because the
+device's AVB root of trust is the public AOSP test key, so modified images can be
+re-signed and the locked bootloader still accepts them.
 
 - **Want root / permissive?** -> **[docs/ROOT.md](docs/ROOT.md)** (the runbook).
 - **Just want a backup?** -> [Quickstart](#quickstart-full-backup).
@@ -20,14 +20,20 @@ still accepts them.
 
 - Fully permissive SELinux (all 2991 policy types), verified on hardware:
   `adb shell dmesg` works and the loaded policy reports `2991/2991` permissive.
-- Method: edit `/odm/etc/selinux/precompiled_sepolicy`, regenerate dm-verity,
-  **surgically re-sign `vbmeta_b`** with the AOSP test key, flash the active
-  slot over EDL. No bootloader unlock, no userdata wipe, AVB still enforced.
+- **`adb root` returns `uid=0(root)`**, by making the build report
+  `ro.debuggable=1` (added to `/odm/etc/build.prop`, which overrides the
+  `system` value at init property-load time - no `system`/`vbmeta_system` edit).
+- Method: in **one** `odm` rebuild, edit
+  `/odm/etc/selinux/precompiled_sepolicy` **and** `/odm/etc/build.prop`,
+  regenerate dm-verity, **surgically re-sign `vbmeta_b`** with the AOSP test key,
+  and flash the active slot over EDL (one pass). No bootloader unlock, no
+  userdata wipe, AVB still enforced.
 - Full details, exact offsets, and rollback: **[docs/ROOT.md](docs/ROOT.md)**.
 
 ## Docs map
 
-- **[docs/ROOT.md](docs/ROOT.md)** - the EDL-only permissive-root runbook.
+- **[docs/ROOT.md](docs/ROOT.md)** - the EDL-only runbook for permissive SELinux
+  + `adb root`.
 - **[docs/CAPABILITIES.md](docs/CAPABILITIES.md)** - every firehose command the
   loader exposes (backup, restore, erase, slots, raw sector I/O, memory).
 - **[docs/PATCHES.md](docs/PATCHES.md)** - what was fixed in the vendored `edl`,
