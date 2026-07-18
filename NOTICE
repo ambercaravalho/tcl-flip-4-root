@@ -21,6 +21,18 @@ listed below.
              (Qualcomm QM215). This is a proprietary, signed binary redistributed
              here for interoperability/backup purposes. All rights belong to the
              respective vendors.
+   Credit:   This loader was obtained via Ryjelsum's research (the "TCL Flip 4 5G"
+             T440W loader extracted from TCL vendor tooling). See:
+             https://ryjelsum.me/homelab/qm215-kaios-flips/
+
+Acknowledgements
+   This project was inspired and substantially helped by Ryjelsum's writeup,
+   "Continuing my Qualcomm garbage addiction: QM215 KaiOS flip phones (and a bit
+   of tearing into TCL vendor repair utility files)"
+   (https://ryjelsum.me/homelab/qm215-kaios-flips/), including sourcing the EDL
+   loader file and diagnosing the firehose "bytes-like object" error. The EDL
+   software still needed additional revisions for this specific phone; those are
+   documented in docs/PATCHES.md.
 
 3. Linux udev rules
    Location: linux/50-android.rules, linux/51-edl.rules

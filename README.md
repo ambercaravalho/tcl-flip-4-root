@@ -199,6 +199,13 @@ does **not** lose them (only runtime deps come from `requirements.txt`).
 
 ## Credits and license
 
+- This project was inspired by and built on the research in Ryjelsum's writeup,
+  [*Continuing my Qualcomm garbage addiction: QM215 KaiOS flip phones*](https://ryjelsum.me/homelab/qm215-kaios-flips/).
+  The `loader/flip-4-edl.bin` firehose programmer came from that work (the "TCL
+  Flip 4 5G" T440W loader they extracted from TCL's vendor tooling), and their
+  notes on the `TypeError: a bytes-like object is required, not 'str'` firehose
+  bug pointed the way; the remaining fixes here are additional revisions this
+  specific phone needed in the EDL software (see [docs/PATCHES.md](docs/PATCHES.md)).
 - EDL tool: [bkerler/edl](https://github.com/bkerler/edl) (c) B. Kerler, GPLv3 -
   vendored and patched in `third_party/edlclient/` (see its `LICENSE`).
 - `loader/flip-4-edl.bin`: proprietary Qualcomm/TCL signed firehose programmer,

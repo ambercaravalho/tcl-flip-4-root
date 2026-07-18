@@ -45,6 +45,9 @@ crashed. Fixed by guarding the type:
 if isinstance(rsp.data, dict) and rsp.data.get("value") == "NAK":
 ```
 
+> This exact error, and the pointer toward its fix, is documented in Ryjelsum's
+> writeup: [*Continuing my Qualcomm garbage addiction: QM215 KaiOS flip phones*](https://ryjelsum.me/homelab/qm215-kaios-flips/).
+
 ## 2. Infinite USB retry loop (the "hang")
 
 File: `third_party/edlclient/Library/Connection/usblib.py` (in `usbread`)
