@@ -1,0 +1,23 @@
+# Python virtualenv (recreate with: scripts/setup.sh)
+.venv/
+
+# Device backups / dumped images (huge, and contain personal data)
+backups/*
+!backups/.gitkeep
+*.img
+*.bin.dump
+
+# Run logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# edl runtime cache (auto-generated; contains device serial)
+edl_config.json
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# OS cruft
+.DS_Store

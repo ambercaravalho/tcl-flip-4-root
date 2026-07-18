@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Thin wrapper around the vendored, patched edl tool.
+#
+# Runs third_party/edlclient using the repo's .venv, with third_party on
+# PYTHONPATH so the package imports as `edlclient`. All arguments are passed
+# straight through, e.g.:
+#
+#   scripts/edl printgpt --loader=loader/flip-4-edl.bin --memory=emmc --skipresponse
+#
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$DIR/.venv/bin/python"
+
+if [[ ! -x "$PY" ]]; then
+  echo "error: $PY not found. Run scripts/setup.sh first." >&2
+  exit 1
+fi
+
+exec env PYTHONPATH="$DIR/third_party" "$PY" -m edlclient.edl "$@"

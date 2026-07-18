@@ -1,0 +1,31 @@
+tcl-flip-4-root - NOTICE
+========================
+
+This repository bundles third-party components. Their licenses and origins are
+listed below.
+
+1. edl / edlclient (vendored, patched)
+   Location: third_party/edlclient/
+   Upstream: https://github.com/bkerler/edl
+   Author:   (c) B. Kerler
+   License:  GNU General Public License v3.0 (see third_party/edlclient/LICENSE)
+
+   This copy is edlclient 3.62 with local patches applied so it works with the
+   TCL Flip 4 firehose loader. The patches are documented in docs/PATCHES.md.
+   Because this component is GPLv3, redistribution of this directory must comply
+   with the terms of the GPLv3.
+
+2. flip-4-edl.bin (firehose programmer/loader)
+   Location: loader/flip-4-edl.bin
+   Origin:   Qualcomm/TCL signed firehose programmer for the TCL Flip 4
+             (Qualcomm QM215). This is a proprietary, signed binary redistributed
+             here for interoperability/backup purposes. All rights belong to the
+             respective vendors.
+
+3. Linux udev rules
+   Location: linux/50-android.rules, linux/51-edl.rules
+   Origin:   Community Android/EDL udev rules (as shipped with the original edl
+             project). Provided for convenience on Linux hosts.
+
+Everything else in this repository (scripts, docs) is provided under the
+repository's own LICENSE file unless noted otherwise.
