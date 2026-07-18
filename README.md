@@ -1,40 +1,58 @@
 # tcl-flip-4-root
 
-**EDL Firehose reference and toolkit for the TCL Flip 4** (Qualcomm QM215, KaiOS
-feature phone).
+**EDL-only root (SELinux-permissive) for the TCL Flip 4** - plus the firehose
+reference and backup toolkit it is built on.
 
-This repo gives you a working, self-contained way to talk to the phone's
-Qualcomm **EDL (Emergency Download) firehose** loader from macOS or Linux, and
-documents every capability that loader exposes: back up, restore/flash, erase,
-read the partition table, raw sector I/O, low-level memory access, device info,
-and reboot.
+This repo documents and tools a **no-wipe, no-unlock** way to make the TCL Flip 4
+fully SELinux-permissive over Qualcomm **EDL firehose**, with Android Verified
+Boot left **on**. It works because the device's AVB root of trust is the public
+AOSP test key, so modified images can be re-signed and the locked bootloader
+still accepts them.
 
-If you just want a backup, jump to [Quickstart](#quickstart-full-backup).
+- **Want root / permissive?** -> **[docs/ROOT.md](docs/ROOT.md)** (the runbook).
+- **Just want a backup?** -> [Quickstart](#quickstart-full-backup).
 
----
+> WRITE/erase over EDL can brick the phone. Make a verified full backup first
+> (`scripts/backup.sh`); every patched image we flash is carved from it and
+> reversible.
 
-## Contents
+## What was achieved
 
-- [How EDL / firehose works](#how-edl--firehose-works)
-- [The device](#the-device)
-- [What the loader can do](#what-the-loader-can-do)
-- [Repo layout](#repo-layout)
-- [Setup (one time)](#setup-one-time)
-- [Entering EDL mode](#entering-edl-mode)
-- [Quickstart: full backup](#quickstart-full-backup)
-- [Troubleshooting](#troubleshooting)
-- [How the tool was patched](#how-the-tool-was-patched)
-- [Credits and license](#credits-and-license)
+- Fully permissive SELinux (all 2991 policy types), verified on hardware:
+  `adb shell dmesg` works and the loaded policy reports `2991/2991` permissive.
+- Method: edit `/odm/etc/selinux/precompiled_sepolicy`, regenerate dm-verity,
+  **surgically re-sign `vbmeta_b`** with the AOSP test key, flash the active
+  slot over EDL. No bootloader unlock, no userdata wipe, AVB still enforced.
+- Full details, exact offsets, and rollback: **[docs/ROOT.md](docs/ROOT.md)**.
 
----
+## Docs map
+
+- **[docs/ROOT.md](docs/ROOT.md)** - the EDL-only permissive-root runbook.
+- **[docs/CAPABILITIES.md](docs/CAPABILITIES.md)** - every firehose command the
+  loader exposes (backup, restore, erase, slots, raw sector I/O, memory).
+- **[docs/PATCHES.md](docs/PATCHES.md)** - what was fixed in the vendored `edl`,
+  and the one operational rule that matters (`--skipresponse`: reads yes, writes
+  no).
+
+## The device
+
+| Property | Value |
+|---|---|
+| Phone | TCL Flip 4 / "Go Flip 5G", model **T440W** (`gflip5gtmo` / `pitti_32go`) |
+| OS | **KaiOS 4 on Android 14** base, `user`/test-keys, SDK 34, kernel `6.1.90-android14` |
+| SoC | Qualcomm (HWID `0x002980e100420071`, MSM_ID `0x002980e1`) |
+| EDL USB id | `05c6:9008` |
+| Storage | eMMC, 512-byte sectors, ~29.12 GiB (61,079,552 sectors) |
+| Layout | GPT, **A/B slots** (`_a`/`_b`), **Virtual A/B (VABC)**, `super`, `userdata`; active slot **B** |
+| AVB | signed with the public **AOSP `testkey_rsa4096`** (so re-signable) |
+| Loader | `loader/flip-4-edl.bin` (firehose programmer, required) |
 
 ## How EDL / firehose works
 
-Qualcomm SoCs have a low-level recovery mode called **EDL** (Emergency Download,
-USB `05c6:9008`). In EDL the chip speaks a small protocol called **Sahara**,
-whose only real job is to accept a signed **firehose programmer** (a little ELF
-that runs on the phone). Once that programmer is uploaded, you speak
-**firehose** (an XML-over-USB protocol) to read/write the phone's flash.
+Qualcomm SoCs have a low-level recovery mode, **EDL** (USB `05c6:9008`). In EDL
+the chip speaks **Sahara**, whose only job is to accept a signed **firehose
+programmer** (a small ELF that runs on the phone). Once uploaded, you speak
+**firehose** (XML-over-USB) to read/write flash.
 
 ```mermaid
 flowchart LR
@@ -46,69 +64,8 @@ flowchart LR
 ```
 
 So two things are always required: the **loader** (`loader/flip-4-edl.bin`,
-provided here) and a host tool that speaks Sahara + firehose (the vendored,
-patched `edl` in this repo).
-
-## The device
-
-| Property | Value |
-|---|---|
-| Phone | TCL Flip 4 |
-| SoC | Qualcomm QM215 |
-| EDL USB id | `05c6:9008` |
-| Storage | eMMC, 512-byte sectors |
-| Capacity | ~29.12 GiB (61,079,552 sectors) |
-| Layout | GPT, **A/B slots** (`_a` / `_b` partitions), `super`, `userdata` |
-| HWID (observed) | `0x002980e100420071` |
-| Loader build date | May 14 2025 |
-
-## What the loader can do
-
-On connect, the loader advertises **23 firehose functions** (`program`, `read`,
-`erase`, `patch`, `configure`, `getstorageinfo`, `setbootablestoragedrive`,
-`power`, `firmwarewrite`, `peek`/`poke` via patch, secure-boot status, etc.).
-
-These map to concrete commands - the full, example-by-example reference is in
-**[docs/CAPABILITIES.md](docs/CAPABILITIES.md)**. Quick index:
-
-| Capability | Safety | Command |
-|---|---|---|
-| Device / secure-boot info | READ | `secureboot`, connect header |
-| Storage info | READ | `getstorageinfo` |
-| Partition table | READ | `printgpt`, `gpt <dir>` |
-| Full backup | READ | `rf <file>` |
-| Per-partition / single / raw read | READ | `rl <dir>`, `r <name> <file>`, `rs <start> <count> <file>` |
-| A/B slot | READ/CONTROL | `getactiveslot`, `setactiveslot` |
-| Flash / restore | WRITE | `w`, `wl`, `wf`, `ws` |
-| Erase | WRITE | `e`, `es` |
-| Reboot / power | CONTROL | `reset` |
-| Low-level memory / fuses | ADVANCED | `peek`, `poke`, `pbl`, `qfp`, `memtbl` |
-
-> WRITE and erase commands can brick the phone. Always make a verified backup
-> first (`scripts/backup.sh`).
-
-## Repo layout
-
-```
-.
-├── README.md                 # this file
-├── docs/
-│   ├── CAPABILITIES.md       # every firehose capability, with examples
-│   └── PATCHES.md            # what was fixed in the vendored edl, and why
-├── loader/
-│   └── flip-4-edl.bin        # the firehose programmer for this phone (required)
-├── scripts/
-│   ├── setup.sh              # create .venv + install deps
-│   ├── check-device.sh       # is the phone visible in EDL mode?
-│   ├── backup.sh             # full backup + verify
-│   └── edl                   # wrapper around the vendored edl tool
-├── third_party/
-│   └── edlclient/            # vendored + patched bkerler/edl (GPLv3)
-├── linux/                    # udev rules for Linux hosts
-├── requirements.txt          # runtime deps for the vendored edl
-├── backups/                  # dumps land here (gitignored)
-└── NOTICE / LICENSE
-```
+provided) and a host tool that speaks Sahara + firehose (the vendored, patched
+`edl` in `third_party/`).
 
 ## Setup (one time)
 
@@ -120,11 +77,10 @@ scripts/setup.sh
 ```
 
 This creates `.venv/`, installs `requirements.txt`, and verifies the vendored
-`edl` tool loads. (The `edl` tool itself is vendored in `third_party/` and
-already patched - see [docs/PATCHES.md](docs/PATCHES.md).)
+`edl` loads. The tool is vendored and already patched (see
+[docs/PATCHES.md](docs/PATCHES.md)); recreating `.venv` never loses the fixes.
 
-**Linux only:** install the udev rules so you can access the device without root,
-then replug the phone:
+**Linux only:** install the udev rules, then replug the phone:
 
 ```bash
 sudo cp linux/51-edl.rules linux/50-android.rules /etc/udev/rules.d/
@@ -133,79 +89,70 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 ## Entering EDL mode
 
-The phone must enumerate as USB **`05c6:9008`**. Ways to get there, easiest
-first:
+The phone must enumerate as USB **`05c6:9008`**. Easiest first:
 
 1. **ADB** (if USB debugging is on): `adb reboot edl`
-2. **Fastboot** (if you can reach the bootloader): `fastboot oem edl`
-3. **Key combo:** power off fully, then hold both volume keys while plugging in
-   USB.
-4. **Test point:** open the phone and short the labeled EDL test point to ground
-   while connecting USB (last resort).
+2. **Fastboot** (if reachable): `fastboot oem edl`
+3. **Key combo:** power off fully, hold both volume keys while plugging in USB.
+4. **Test point:** short the labeled EDL test point to ground while connecting
+   USB (last resort).
 
-Then confirm:
+Then confirm (on macOS, `system_profiler` often won't list 9008, so this asks
+libusb directly):
 
 ```bash
 scripts/check-device.sh
 ```
 
-> On macOS, `system_profiler` often will **not** list the 9008 device even when
-> it's connected - that's why `check-device.sh` asks libusb directly.
+## The one rule: reads vs writes
 
-> Every read/dump command on this device needs `--skipresponse`. The scripts
-> already include it; if you call `edl` by hand, don't forget it. See
-> [docs/PATCHES.md](docs/PATCHES.md) for why.
+This loader needs different handling per direction. The scripts already do the
+right thing; if you call `edl` by hand:
+
+- **READ / dump** (`r`, `rs`, `printgpt`, backups): pass `--skipresponse`.
+- **WRITE** (`w`, `ws`, ...): do **NOT** pass `--skipresponse`, or the write
+  reports success but silently does not commit.
+
+Why: [docs/PATCHES.md](docs/PATCHES.md).
 
 ## Quickstart: full backup
 
 With the phone in EDL mode:
 
 ```bash
-scripts/check-device.sh          # should say the 9008 device is detected
+scripts/check-device.sh          # should detect the 9008 device
 scripts/backup.sh                # dumps + verifies backups/flip4-full-emmc.img
 ```
 
-The full image is ~29 GiB and takes ~15 minutes at ~35 MB/s. `backup.sh`
-verifies it afterward (primary + backup GPT present, size 512-aligned).
-
-When you're done, **pull the battery for ~10s and power on** to leave EDL mode.
-
-For anything beyond a full backup (restore, per-partition, erase, raw sectors,
-slots, memory peek/poke), see **[docs/CAPABILITIES.md](docs/CAPABILITIES.md)**.
+The full image is ~29 GiB (~15 min at ~35 MB/s) and is verified afterward
+(primary + backup GPT present, size 512-aligned). When done, **pull the battery
+for ~10s and power on** to leave EDL. For everything else (restore,
+per-partition, erase, raw sectors, slots, memory), see
+[docs/CAPABILITIES.md](docs/CAPABILITIES.md).
 
 ## Troubleshooting
 
-- **Hangs at "Trying to read first storage sector..."** - you forgot
-  `--skipresponse`. The scripts include it; add it to any manual `edl` command.
-- **`check-device.sh` says NOT FOUND** - the phone isn't in EDL mode, or the
-  cable is charge-only, or it's behind a hub. Re-enter EDL and use a direct port.
-- **macOS shows nothing in System Information** - expected; trust
-  `check-device.sh` instead.
-- **A command hung and you killed it; now everything hangs** - killing `edl`
-  mid-transfer leaves the loader in a stale state. Pull the battery for ~10s,
-  re-enter EDL, and try again (one clean command per session is safest).
-- **`reset` doesn't reboot the phone** - known for this loader; just pull the
-  battery and power on.
-
-## How the tool was patched
-
-Stock `edl` 3.62 hangs/crashes on this loader. This repo vendors it with three
-fixes (a `TypeError` on the read ACK, an infinite USB-retry loop, and unbounded
-empty-read loops), plus the mandatory `--skipresponse` workaround. Details:
-**[docs/PATCHES.md](docs/PATCHES.md)**.
-
-The fixes live in `third_party/edlclient/` so they survive; recreating `.venv`
-does **not** lose them (only runtime deps come from `requirements.txt`).
+- **Hangs at "Trying to read first storage sector..."** - a read is missing
+  `--skipresponse`.
+- **A write "succeeded" but didn't stick** - you used `--skipresponse` on a
+  write; rerun without it and read back to verify.
+- **`check-device.sh` says NOT FOUND** - not in EDL, charge-only cable, or
+  behind a hub. Re-enter EDL and use a direct port.
+- **Everything hangs after you killed a command** - killing `edl` mid-transfer
+  leaves the loader stale (`Sahara error`). Pull the battery ~10s, re-enter EDL.
+  One clean command per session is safest.
+- **`reset` doesn't reboot** - known for this loader; pull the battery and power
+  on.
 
 ## Credits and license
 
-- This project was inspired by and built on the research in Ryjelsum's writeup,
+- Inspired by and built on Ryjelsum's writeup,
   [*Continuing my Qualcomm garbage addiction: QM215 KaiOS flip phones*](https://ryjelsum.me/homelab/qm215-kaios-flips/).
-  The `loader/flip-4-edl.bin` firehose programmer came from that work (the "TCL
-  Flip 4 5G" T440W loader they extracted from TCL's vendor tooling), and their
-  notes on the `TypeError: a bytes-like object is required, not 'str'` firehose
-  bug pointed the way; the remaining fixes here are additional revisions this
-  specific phone needed in the EDL software (see [docs/PATCHES.md](docs/PATCHES.md)).
+  The `loader/flip-4-edl.bin` firehose programmer (the T440W loader extracted
+  from TCL vendor tooling) came from that work, and their notes on the
+  `TypeError: a bytes-like object` firehose bug pointed the way; the remaining
+  fixes here are revisions this specific phone needed (see
+  [docs/PATCHES.md](docs/PATCHES.md)).
 - EDL tool: [bkerler/edl](https://github.com/bkerler/edl) (c) B. Kerler, GPLv3 -
   vendored and patched in `third_party/edlclient/` (see its `LICENSE`).
 - `loader/flip-4-edl.bin`: proprietary Qualcomm/TCL signed firehose programmer,

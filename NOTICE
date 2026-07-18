@@ -17,8 +17,8 @@ listed below.
 
 2. flip-4-edl.bin (firehose programmer/loader)
    Location: loader/flip-4-edl.bin
-   Origin:   Qualcomm/TCL signed firehose programmer for the TCL Flip 4
-             (Qualcomm QM215). This is a proprietary, signed binary redistributed
+   Origin:   Qualcomm/TCL signed firehose programmer for the TCL Flip 4 / "Go
+             Flip 5G" (T440W). This is a proprietary, signed binary redistributed
              here for interoperability/backup purposes. All rights belong to the
              respective vendors.
    Credit:   This loader was obtained via Ryjelsum's research (the "TCL Flip 4 5G"

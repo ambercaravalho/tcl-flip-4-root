@@ -3,7 +3,8 @@
 The EDL tool in `third_party/edlclient/` is [bkerler/edl](https://github.com/bkerler/edl)
 v3.62, **vendored on purpose** so the fixes below survive and don't have to be
 re-applied to a fresh `pip install`. Stock `edl` 3.62 hangs or crashes on the
-TCL Flip 4's firehose loader; these three changes make it work.
+TCL Flip 4's firehose loader; the one operational rule plus four code fixes
+below make it work.
 
 If you ever re-pull upstream `edl`, you'll need to re-apply the equivalent
 changes (or keep using this vendored copy).

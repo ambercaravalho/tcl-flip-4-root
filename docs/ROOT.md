@@ -32,14 +32,14 @@ regenerate its verity data, **re-sign AVB**, and flash over EDL.
 
 ## The device (this unit)
 
-| Property | Value |
-|---|---|
-| Model | TCL **T440W** (`pitti_32go` / `gflip5gtmo`, "Go Flip 5G") |
-| Base | Android 14, `user`/test-keys, SDK 34, kernel `6.1.90-android14` |
-| Build fingerprint | `TCL/gflip5gtmo/pitti_32go:14/UKQ1.241125.001/jenkins12220921:user/test-keys` |
-| Active slot | **B** |
-| Partitioning | **Virtual A/B (VABC)** - snapshots enabled, compression on |
-| Storage | eMMC, 512-byte sectors |
+Canonical device facts are in the [README](../README.md#the-device). The
+root-critical specifics used below:
+
+- Active slot **B**; partitioning is **Virtual A/B (VABC)** (snapshots +
+  compression), so patched dynamic partitions go to the **active** slot base
+  (see "Two facts" below), not an "inactive" slot.
+- `odm` footer fingerprint (needed for `avbtool` props):
+  `TCL/gflip5gtmo/pitti_32go:14/UKQ1.241125.001/jenkins12220921:user/test-keys`.
 
 ## The key finding: AVB uses the public AOSP test key
 

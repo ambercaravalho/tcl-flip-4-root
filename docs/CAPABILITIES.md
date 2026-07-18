@@ -9,8 +9,10 @@ patched and why `--skipresponse` is required, see [PATCHES.md](PATCHES.md).
 ## How to read this doc
 
 - Every command goes through the wrapper: **`scripts/edl <command> ...`**.
-- Common flags used everywhere on this device:
-  `--loader=loader/flip-4-edl.bin --memory=emmc --skipresponse`
+- Common flags on this device: `--loader=loader/flip-4-edl.bin --memory=emmc`.
+- **`--skipresponse` rule (important):** add it to **READ** commands; **omit it
+  on WRITE/erase** commands, or the write reports success but silently does not
+  commit. Why: [PATCHES.md](PATCHES.md).
 - Safety legend:
   - **READ** - does not modify the device. Safe.
   - **WRITE** - modifies flash. Can brick the phone. Make a full backup first.
@@ -146,33 +148,38 @@ scripts/edl setactiveslot a --loader=loader/flip-4-edl.bin --memory=emmc --skipr
 
 > Make a verified backup first. Flashing the wrong image or a bad slot can make
 > the phone unbootable.
+>
+> **Do NOT pass `--skipresponse` on writes** - this loader only commits a
+> `program` when the handshake response is read; with `--skipresponse` the write
+> prints success but silently does nothing. Always read the target back and
+> compare sha256 before rebooting. See [PATCHES.md](PATCHES.md).
 
 Restore one partition:
 
 ```bash
 scripts/edl w boot_a backups/boot_a.img \
-    --loader=loader/flip-4-edl.bin --memory=emmc --skipresponse
+    --loader=loader/flip-4-edl.bin --memory=emmc
 ```
 
 Flash a full raw image back:
 
 ```bash
 scripts/edl wf backups/flip4-full-emmc.img \
-    --loader=loader/flip-4-edl.bin --memory=emmc --skipresponse
+    --loader=loader/flip-4-edl.bin --memory=emmc
 ```
 
 Flash a set of images using a `rawprogram*.xml` (as produced by `gpt`/`rl`):
 
 ```bash
 scripts/edl wl backups/partitions \
-    --loader=loader/flip-4-edl.bin --memory=emmc --skipresponse
+    --loader=loader/flip-4-edl.bin --memory=emmc
 ```
 
 ### Erase (WRITE - can brick)
 
 ```bash
-scripts/edl e misc      --loader=loader/flip-4-edl.bin --memory=emmc --skipresponse
-scripts/edl es 0 34     --loader=loader/flip-4-edl.bin --memory=emmc --skipresponse
+scripts/edl e misc      --loader=loader/flip-4-edl.bin --memory=emmc
+scripts/edl es 0 34     --loader=loader/flip-4-edl.bin --memory=emmc
 ```
 
 ### Reboot / power (CONTROL)
