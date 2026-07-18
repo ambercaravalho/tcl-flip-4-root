@@ -781,17 +781,24 @@ class firehose(metaclass=LogBase):
                     if rsp["rawmode"] == "false":
                         return response(resp=True, data=resData)
             else:
-                if len(rsp) > 1:
-                    if b"Failed to open the UFS Device" in rsp[2]:
-                        self.error(f"Error:{rsp[2]}")
-                    self.lasterror = rsp[2]
-                return response(resp=False, data=resData, error=rsp[2])
-        if rsp["value"] != "ACK":
-            self.lasterror = rsp[2]
+                # TCL Flip 4 loader (--skipresponse) frequently returns no
+                # standard <response value=.../>. Don't index rsp[2] blindly
+                # (it raises KeyError); trust the raw bytes we already read and
+                # treat a full-length read as success.
+                err = rsp[2] if (isinstance(rsp, dict) and 2 in rsp) else info
+                if isinstance(err, bytes) and b"Failed to open the UFS Device" in err:
+                    self.error(f"Error:{err}")
+                got_all = bytestoread <= 0
+                if not got_all:
+                    self.lasterror = err
+                return response(resp=got_all, data=resData, error=err)
+        errval = rsp[2] if (isinstance(rsp, dict) and 2 in rsp) else info
+        if rsp.get("value") != "ACK":
+            self.lasterror = errval
         if display and prog != 100:
             progbar.show_progress(prefix="Read", pos=total, total=total, display=display)
-        resp = rsp["value"] == "ACK"
-        return response(resp=resp, data=resData, error=rsp[2])  # Do not remove, needed for oneplus
+        resp = rsp.get("value") == "ACK"
+        return response(resp=resp, data=resData, error=errval)  # Do not remove, needed for oneplus
 
     def get_gpt(self, lun, gpt_num_part_entries, gpt_part_entry_size, gpt_part_entry_start_lba, start_sector=1):
         try:

@@ -15,6 +15,14 @@ logs/*
 # edl runtime cache (auto-generated; contains device serial)
 edl_config.json
 
+# Rooting work: carved/patched images + unpack trees (generated, can be huge)
+build/
+
+# Fetched build tools (avbtool, mkbootimg, test keys) - see docs/ROOT.md to refetch
+tools/*
+# ...but keep our own source tool (built with libsepol; see docs/ROOT.md)
+!tools/setpermissive.c
+
 # Python caches
 __pycache__/
 *.py[cod]
