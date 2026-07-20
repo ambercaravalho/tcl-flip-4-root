@@ -27,7 +27,7 @@ echo ">> Installing runtime dependencies (requirements.txt)"
 .venv/bin/python -m pip install -r requirements.txt
 
 echo ">> Verifying the vendored edl tool loads"
-PYTHONPATH="$DIR/third_party" .venv/bin/python -m edlclient.edl --help >/dev/null
+PYTHONPATH="$DIR/vendor" .venv/bin/python -m edlclient.edl --help >/dev/null
 
 cat <<'EOF'
 

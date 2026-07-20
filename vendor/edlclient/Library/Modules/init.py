@@ -20,17 +20,15 @@ except ImportError as e:
 
 try:
     from edlclient.Library.Modules.oneplus import oneplus
-except ImportError as e:
-    print(e)
+except ImportError:
+    # Removed in this slimmed vendor copy (not needed for the TCL Flip 4).
     oneplus = None
-    pass
 
 try:
     from edlclient.Library.Modules.xiaomi import xiaomi
-except ImportError as e:
-    print(e)
+except ImportError:
+    # Removed in this slimmed vendor copy (not needed for the TCL Flip 4).
     xiaomi = None
-    pass
 
 try:
     from edlclient.Library.Modules.nothing import nothing

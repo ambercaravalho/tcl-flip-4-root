@@ -4,10 +4,17 @@ An **EDL-only, no-wipe** path to a **fully SELinux-permissive** TCL Flip 4 with 
 **root shell over ADB** (`adb root`), adapting the old KaiOS 2.5 boot-patch idea
 to the phone's real KaiOS 4 (Android 14) internals.
 
-> Status: **DONE and verified on hardware.** The device boots `green` on its
-> normal (active) slot with every SELinux type permissive (`2991/2991`) **and
-> `adb root` returning `uid=0(root)`**, no bootloader unlock, no userdata wipe,
-> AVB still on.
+> **Experimental / brick risk.** This is unofficial reverse-engineering that
+> worked on **one specific unit**; it is not guaranteed to work or be safe on
+> yours. The WRITE steps below can **permanently brick** the phone. Do your own
+> research, understand every step first, and **make a full verified backup before
+> anything** (`scripts/backup.sh`). Use entirely at your own risk.
+
+> Status: reproduced and verified on **one** hardware unit. The device booted
+> `green` on its normal (active) slot with every SELinux type permissive
+> (`2991/2991`) **and `adb root` returning `uid=0(root)`**, no bootloader unlock,
+> no userdata wipe, AVB still on. Your mileage may vary - treat every value here
+> (offsets, sizes, fingerprints) as specific to that unit and re-confirm on yours.
 
 Both changes ride the **same single `odm` rebuild + one flash**: we edit two
 files inside `odm` (the SELinux policy and `odm`'s `build.prop`), regenerate

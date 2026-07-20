@@ -1,5 +1,10 @@
 # TCL Flip 4 - EDL Firehose capabilities
 
+> **Experimental / brick risk.** Unofficial notes for one specific phone. The
+> WRITE and erase commands here can **permanently brick** your device. Do your
+> own research and **make a full verified backup first** (`scripts/backup.sh`).
+> Use at your own risk. See the [README](../README.md).
+
 This is the full capability reference for the TCL Flip 4's firehose loader
 (`loader/flip-4-edl.bin`), mapped to concrete `edl` commands.
 

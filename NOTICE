@@ -4,14 +4,16 @@ tcl-flip-4-root - NOTICE
 This repository bundles third-party components. Their licenses and origins are
 listed below.
 
-1. edl / edlclient (vendored, patched)
-   Location: third_party/edlclient/
+1. edl / edlclient (vendored, patched, slimmed)
+   Location: vendor/edlclient/
    Upstream: https://github.com/bkerler/edl
    Author:   (c) B. Kerler
-   License:  GNU General Public License v3.0 (see third_party/edlclient/LICENSE)
+   License:  GNU General Public License v3.0 (see vendor/edlclient/LICENSE)
 
    This copy is edlclient 3.62 with local patches applied so it works with the
-   TCL Flip 4 firehose loader. The patches are documented in docs/PATCHES.md.
+   TCL Flip 4 firehose loader, and slimmed to only the modules this workflow
+   uses (the standalone Tools/, Windows/ DLLs, test fixtures, and unrelated
+   device modules were removed). The patches are documented in docs/PATCHES.md.
    Because this component is GPLv3, redistribution of this directory must comply
    with the terms of the GPLv3.
 

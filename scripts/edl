@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Thin wrapper around the vendored, patched edl tool.
 #
-# Runs third_party/edlclient using the repo's .venv, with third_party on
+# Runs vendor/edlclient using the repo's .venv, with vendor on
 # PYTHONPATH so the package imports as `edlclient`. All arguments are passed
 # straight through, e.g.:
 #
@@ -17,4 +17,4 @@ if [[ ! -x "$PY" ]]; then
   exit 1
 fi
 
-exec env PYTHONPATH="$DIR/third_party" "$PY" -m edlclient.edl "$@"
+exec env PYTHONPATH="$DIR/vendor" "$PY" -m edlclient.edl "$@"

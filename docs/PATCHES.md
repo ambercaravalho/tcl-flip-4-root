@@ -1,6 +1,11 @@
 # Patches to the vendored `edl` tool
 
-The EDL tool in `third_party/edlclient/` is [bkerler/edl](https://github.com/bkerler/edl)
+> **Experimental / use at your own risk.** This is unofficial reverse-engineering
+> notes for one specific phone. EDL writes can **permanently brick** your device.
+> Do your own research and **always make a full, verified backup first**
+> (`scripts/backup.sh`). See the [README](../README.md).
+
+The EDL tool in `vendor/edlclient/` is [bkerler/edl](https://github.com/bkerler/edl)
 v3.62, **vendored on purpose** so the fixes below survive and don't have to be
 re-applied to a fresh `pip install`. Stock `edl` 3.62 hangs or crashes on the
 TCL Flip 4's firehose loader; the one operational rule plus four code fixes
@@ -52,7 +57,7 @@ the patched image; the `--skipresponse` version reads back as stock.
 
 ## 1. `TypeError` on the read ACK check
 
-File: `third_party/edlclient/Library/firehose.py` (in `cmd_read_buffer`)
+File: `vendor/edlclient/Library/firehose.py` (in `cmd_read_buffer`)
 
 `xmlsend()` returns a `response` whose `.data` is sometimes a parsed `dict` and
 sometimes raw `bytes`. The original code assumed `dict`:
@@ -76,7 +81,7 @@ if isinstance(rsp.data, dict) and rsp.data.get("value") == "NAK":
 
 ## 2. Infinite USB retry loop (the "hang")
 
-File: `third_party/edlclient/Library/Connection/usblib.py` (in `usbread`)
+File: `vendor/edlclient/Library/Connection/usblib.py` (in `usbread`)
 
 The timeout-retry logic compared the timeout *value* to `10`:
 
@@ -109,7 +114,7 @@ if "timed out" in error:
 
 ## 3. Read loops could spin forever on empty reads
 
-File: `third_party/edlclient/Library/firehose.py` (in `cmd_read` and `cmd_read_buffer`)
+File: `vendor/edlclient/Library/firehose.py` (in `cmd_read` and `cmd_read_buffer`)
 
 Both raw-read loops decremented "bytes remaining" only when data arrived, so a
 stalled device meant an endless loop of zero-length reads. Each loop now aborts
@@ -118,7 +123,7 @@ instead of hanging.
 
 ## 4. `KeyError: 2` when the loader returns no `<response value=...>`
 
-File: `third_party/edlclient/Library/firehose.py` (in `cmd_read_buffer`)
+File: `vendor/edlclient/Library/firehose.py` (in `cmd_read_buffer`)
 
 After a raw read, `cmd_read_buffer` inspects the trailing response. When the
 loader returns no standard `<response value="ACK"/>` (common on this loader,
